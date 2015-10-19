@@ -658,8 +658,8 @@ main (int argc, char ** argv)
             }
         }
 
-      if (!res) {
-        assert (k > maxk);
+      if (k > maxk) {
+        report (1, k, "indeterminate");
         fputs ("2\n", stdout);
       }
 
