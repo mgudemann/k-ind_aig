@@ -156,10 +156,10 @@ next (unsigned k, unsigned i)
 }
 
 static int
-output (unsigned k, unsigned i)
+bad_state (unsigned k, unsigned i)
 {
-  assert (0 <= i && i < model->num_outputs);
-  return lit (k, model->outputs[i].lit);
+  assert (0 <= i && i < model->num_bad);
+  return lit (k, model->bad[i].lit);
 }
 
 static void
@@ -253,7 +253,7 @@ encode (unsigned k)
 
       picosat_add (0);
 
-      unary (-output (k - 1, 0));
+      unary (-bad_state (k - 1, 0));
     }
 
   report (2, k, "encode");
@@ -354,8 +354,8 @@ stimulus (unsigned k)
 static void
 bad (unsigned k)
 {
-  assert (model->num_outputs == 1);
-  picosat_assume (output (k, 0));
+  assert (model->num_bad == 1);
+  picosat_assume (bad_state (k, 0));
   report (2, k, "bad");
 }
 
@@ -582,21 +582,22 @@ main (int argc, char ** argv)
   if (err)
     die (err);
 
-  if (!model->num_outputs)
-    die ("no output found");
+  if (!model->num_bad)
+    die ("no bad states found");
 
-  if (model->num_outputs > 1)
-    die ("more than one output found");
+  if (model->num_bad > 1)
+    die ("more than one bad state found");
 
   aiger_reencode (model);
 
-  msg (1, 0, "%u literals (MILOA %u %u %u %u %u)",
+  msg (1, 0, "%u literals (MILOAB %u %u %u %u %u %u)",
        model->maxvar + 1,
        model->maxvar,
        model->num_inputs,
        model->num_latches,
        model->num_outputs,
-       model->num_ands);
+       model->num_ands,
+       model->num_bad);
 
   picosat_init ();
 
