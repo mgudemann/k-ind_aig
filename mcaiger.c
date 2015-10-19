@@ -21,7 +21,7 @@ IN THE SOFTWARE.
 */
 
 #include "../aiger/aiger.h"
-#include "../picosat/picosat.h"
+#include "../picosat-936/picosat.h"
 
 unsigned picosat_ado_conflicts (void);
 void picosat_disable_ado (void);
@@ -212,7 +212,7 @@ report (int verbosity, unsigned k, const char * phase)
 {
   msg (verbosity, 1,
        "%4u %-10s %10d %11d %11u",
-       k, phase, 
+       k, phase,
        picosat_variables (), picosat_added_original_clauses (),
        picosat_ado_conflicts ());
 }
@@ -249,7 +249,7 @@ encode (unsigned k)
   if (k)
     {
       for (i = 0; i < model->num_latches; i++)
-	picosat_add (latch (k, i));
+        picosat_add (latch (k, i));
 
       picosat_add (0);
 
@@ -342,10 +342,10 @@ stimulus (unsigned k)
   for (i = 0; i <= k; i++)
     {
       for (j = 0; j < model->num_inputs; j++)
-	{
-	  tmp = picosat_deref (input (i, j));
-	  fputc (tmp ? ((tmp < 0) ? '0' : '1') : 'x', stdout);
-	}
+        {
+          tmp = picosat_deref (input (i, j));
+          fputc (tmp ? ((tmp < 0) ? '0' : '1') : 'x', stdout);
+        }
 
       fputc ('\n', stdout);
     }
@@ -372,9 +372,9 @@ init (unsigned k)
     {
       l = -latch (0, i);
       if (bonly)
-	unary (l);
+        unary (l);
       else
-	picosat_assume (l);
+        picosat_assume (l);
     }
 
   report (2, k, "init");
@@ -394,7 +394,7 @@ cmp_frames (const void * p, const void * q)
       b = picosat_deref (latch (l, i));
       res = a - b;
       if (res)
-	return res;
+        return res;
     }
 
   return 0;
@@ -409,18 +409,18 @@ sat (unsigned k)
   if (rcs || mix)
     {
       if (k == nframes)
-	{
-	  assert (k == nframes);
+        {
+          assert (k == nframes);
 
-	  if (k >= sframes)
-	    {
-	      sframes = sframes ? 2 * sframes : 1;
-	      frames = realloc (frames, sframes * sizeof frames[0]);
-	    }
+          if (k >= sframes)
+            {
+              sframes = sframes ? 2 * sframes : 1;
+              frames = realloc (frames, sframes * sizeof frames[0]);
+            }
 
-	  assert (nframes < sframes);
-	  frames[nframes++] = k;
-	}
+          assert (nframes < sframes);
+          frames[nframes++] = k;
+        }
 
       assert (nframes == k + 1);
     }
@@ -452,10 +452,10 @@ RESTART:
   for (i = 0; i < k; i++)
     if (!cmp_frames (frames + i, frames + i + 1))
       {
-	diffs (frames[i], frames[i+1]);
-	nrcs++;
-	bad (k);
-	goto RESTART;
+        diffs (frames[i], frames[i+1]);
+        nrcs++;
+        bad (k);
+        goto RESTART;
       }
 
   assert (i == k);	/* all different */
@@ -480,13 +480,13 @@ static int
 base (unsigned k)
 {
   int res;
-  if (acs) 
+  if (acs)
     picosat_disable_ado ();
   init (k);
   bad (k);
   report (1, k, "base");
   res = (sat (k) == SAT);
-  if (acs) 
+  if (acs)
     picosat_enable_ado ();
   return res;
 }
@@ -521,36 +521,36 @@ main (int argc, char ** argv)
   for (i = 1; i < argc; i++)
     {
       if (!strcmp (argv[i], "-h"))
-	{
-	  fprintf (stderr, USAGE);
-	  exit (0);
-	}
+        {
+          fprintf (stderr, USAGE);
+          exit (0);
+        }
       else if (!strcmp (argv[i], "-v"))
-	verbosity++;
+        verbosity++;
       else if (!strcmp (argv[i], "-b"))
-	bonly = 1;
+        bonly = 1;
       else if (!strcmp (argv[i], "-i"))
-	ionly = 1;
+        ionly = 1;
       else if (!strcmp (argv[i], "-a"))
-	acs = 1;
+        acs = 1;
       else if (!strcmp (argv[i], "-d"))
-	dcs = 1;
+        dcs = 1;
       else if (!strcmp (argv[i], "-r"))
-	rcs = 1;
+        rcs = 1;
       else if (!strcmp (argv[i], "-m"))
-	mix = 1;
+        mix = 1;
       else if (!strcmp (argv[i], "-n"))
-	ncs = 1;
+        ncs = 1;
       else if (!strcmp (argv[i], "-w"))
-	witness = 1;
+        witness = 1;
       else if (isdigit (argv[i][0]))
-	maxk = (unsigned) atoi (argv[i]);
+        maxk = (unsigned) atoi (argv[i]);
       else if (argv[i][0] == '-')
-	die ("invalid command line option '%s'", argv[i]);
+        die ("invalid command line option '%s'", argv[i]);
       else if (name)
-	die ("multiple input files '%s' and '%s'", name, argv[i]);
+        die ("multiple input files '%s' and '%s'", name, argv[i]);
       else
-	name = argv[i];
+        name = argv[i];
     }
 
   if (ionly && bonly)
@@ -613,41 +613,41 @@ main (int argc, char ** argv)
     {
 
       if (mix && acs && picosat_ado_conflicts () >= 10000)
-	{
-	  acs = 0;
-	  rcs = 1;
-	  picosat_disable_ado ();
-	}
+        {
+          acs = 0;
+          rcs = 1;
+          picosat_disable_ado ();
+        }
 
       connect (k);
       encode (k);
       simple (k);
 
       if (!bonly && step (k))
-	{
-	  report (1, k, "inductive");
-	  fputs ("0\n", stdout);
-	  res = 20;
-	  break;
-	}
+        {
+          report (1, k, "inductive");
+          fputs ("0\n", stdout);
+          res = 20;
+          break;
+        }
 
       if (bonly && picosat_inconsistent ())
-	{
-	  report (1, k, "inconsistent");
-	  fputs ("0\n", stdout);
-	  res = 20;
-	  break;
-	}
+        {
+          report (1, k, "inconsistent");
+          fputs ("0\n", stdout);
+          res = 20;
+          break;
+        }
 
       if (!ionly && base (k))
-	{
-	  report (1, k, "reachable");
-	  fputs ("1\n", stdout);
-	  if (witness)
-	    stimulus (k);
-	  res = 10;
-	  break;
-	}
+        {
+          report (1, k, "reachable");
+          fputs ("1\n", stdout);
+          if (witness)
+            stimulus (k);
+          res = 10;
+          break;
+        }
     }
 
   if (!res) {
