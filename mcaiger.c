@@ -354,7 +354,7 @@ stimulus (unsigned k)
 static void
 bad (unsigned k, unsigned po)
 {
-  /* assert (model->num_bad == 1); */
+  assert (model->num_bad > po);
   picosat_assume (bad_state (k, po));
   report (2, k, "bad");
 }
