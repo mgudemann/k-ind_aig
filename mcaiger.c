@@ -232,7 +232,7 @@ connect (unsigned k)
 }
 
 static void
-encode (unsigned k)
+encode (unsigned k, unsigned po)
 {
   aiger_and * a;
   unsigned i;
@@ -253,7 +253,7 @@ encode (unsigned k)
 
       picosat_add (0);
 
-      unary (-bad_state (k - 1, 0));
+      unary (-bad_state (k - 1, po));
     }
 
   report (2, k, "encode");
@@ -352,10 +352,10 @@ stimulus (unsigned k)
 }
 
 static void
-bad (unsigned k)
+bad (unsigned k, unsigned po)
 {
-  assert (model->num_bad == 1);
-  picosat_assume (bad_state (k, 0));
+  /* assert (model->num_bad == 1); */
+  picosat_assume (bad_state (k, po));
   report (2, k, "bad");
 }
 
@@ -401,7 +401,7 @@ cmp_frames (const void * p, const void * q)
 }
 
 static int
-sat (unsigned k)
+sat (unsigned k, unsigned po)
 {
   unsigned i;
   int res;
@@ -454,7 +454,7 @@ RESTART:
       {
         diffs (frames[i], frames[i+1]);
         nrcs++;
-        bad (k);
+        bad (k, po);
         goto RESTART;
       }
 
@@ -464,28 +464,28 @@ RESTART:
 }
 
 static int
-step (unsigned k)
+step (unsigned k, unsigned po)
 {
   int res;
   if (mix && acs)
     picosat_set_ado_conflict_limit (picosat_ado_conflicts () + 1000);
-  bad (k);
+  bad (k, po);
   report (1, k, "step");
-  res = (sat (k) == UNSAT);
+  res = (sat (k, po) == UNSAT);
 
   return res;
 }
 
 static int
-base (unsigned k)
+base (unsigned k, unsigned po)
 {
   int res;
   if (acs)
     picosat_disable_ado ();
   init (k);
-  bad (k);
+  bad (k, po);
   report (1, k, "base");
-  res = (sat (k) == SAT);
+  res = (sat (k, po) == SAT);
   if (acs)
     picosat_enable_ado ();
   return res;
@@ -585,8 +585,9 @@ main (int argc, char ** argv)
   if (!model->num_bad)
     die ("no bad states found");
 
-  if (model->num_bad > 1)
-    die ("more than one bad state found");
+  int numberPOs = model->num_bad;
+  if (numberPOs > 1)
+    msg (1, 0, "more than one bad state found");
 
   aiger_reencode (model);
 
@@ -599,69 +600,77 @@ main (int argc, char ** argv)
        model->num_ands,
        model->num_bad);
 
-  picosat_init ();
-
-  catchall ();
-
-  picosat_set_prefix ("[picosat] ");
-  picosat_set_output (stderr);
-
-  if (verbosity > 2)
-    picosat_enable_verbosity ();
-
   res = 0;
-  for (k = 0; k <= maxk; k++)
+
+  for (int po = 0; po < numberPOs; po++)
     {
 
-      if (mix && acs && picosat_ado_conflicts () >= 10000)
+      picosat_init ();
+
+      catchall ();
+
+      msg (1, 0, "checking po %u", po);
+
+      picosat_set_prefix ("[picosat] ");
+      picosat_set_output (stderr);
+
+      if (verbosity > 2)
+        picosat_enable_verbosity ();
+
+      for (k = 0; k <= maxk; k++)
         {
-          acs = 0;
-          rcs = 1;
-          picosat_disable_ado ();
+
+          if (mix && acs && picosat_ado_conflicts () >= 10000)
+            {
+              acs = 0;
+              rcs = 1;
+              picosat_disable_ado ();
+            }
+
+          connect (k);
+          encode (k, po);
+          simple (k);
+
+          if (!bonly && step (k, po))
+            {
+              report (1, k, "inductive");
+              fputs ("0\n", stdout);
+              res = 20;
+              break;
+            }
+
+          if (bonly && picosat_inconsistent ())
+            {
+              report (1, k, "inconsistent");
+              fputs ("0\n", stdout);
+              res = 20;
+              break;
+            }
+
+          if (!ionly && base (k, po))
+            {
+              report (1, k, "reachable");
+              fputs ("1\n", stdout);
+              if (witness)
+                stimulus (k);
+              res = 10;
+              break;
+            }
         }
 
-      connect (k);
-      encode (k);
-      simple (k);
+      if (!res) {
+        assert (k > maxk);
+        fputs ("2\n", stdout);
+      }
 
-      if (!bonly && step (k))
-        {
-          report (1, k, "inductive");
-          fputs ("0\n", stdout);
-          res = 20;
-          break;
-        }
+      fflush (stdout);
 
-      if (bonly && picosat_inconsistent ())
-        {
-          report (1, k, "inconsistent");
-          fputs ("0\n", stdout);
-          res = 20;
-          break;
-        }
+      if (verbosity > 1)
+        picosat_stats ();
 
-      if (!ionly && base (k))
-        {
-          report (1, k, "reachable");
-          fputs ("1\n", stdout);
-          if (witness)
-            stimulus (k);
-          res = 10;
-          break;
-        }
+      picosat_reset ();
     }
 
-  if (!res) {
-    assert (k > maxk);
-    fputs ("2\n", stdout);
-  }
-
-  fflush (stdout);
-
-  if (verbosity > 1)
-    picosat_stats ();
-
-  picosat_reset ();
   aiger_reset (model);
 
   free (frames);
