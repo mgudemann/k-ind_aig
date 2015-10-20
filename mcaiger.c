@@ -245,7 +245,7 @@ encode (unsigned k, unsigned po)
   unsigned i;
 
   if (!k)
-    unary (lit (k, 1));		/* true */
+      unary (lit (k, 1));		/* true */
 
   for (i = 0; i < model->num_ands; i++)
     {
@@ -383,11 +383,22 @@ init (unsigned k)
 
   for (i = 0; i < model->num_latches; i++)
     {
-      l = -latch (0, i);
-      if (bonly)
-        unary (l);
+      unsigned reset = model->latches[i].reset;
+
+      /* treat cases with constant resets */
+      if (reset <= 1)
+        {
+          if (reset == 0)
+            l = -latch (0, i);
+          else
+            l = latch (0, i);
+          if (bonly)
+            unary (l);
+          else
+            picosat_assume (l);
+        }
       else
-        picosat_assume (l);
+        die ("reset of latch %u is undefined (%u)\n", i, model->latches[i].reset);
     }
 
   report (2, k, "init");
