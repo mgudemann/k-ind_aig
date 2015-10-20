@@ -1,4 +1,14 @@
-These are the sources of our model checker McAiger 
+This is a modified version of McAiger (see below) to include some AIGER 1.9
+features.
+
+In particular, it supports
+
+  * bad state properties instead of outputs
+  * multiple properties (loops over the POs)
+
+***
+
+These are the sources of our model checker McAiger
 
   http://fmv.jku.at/mcaiger
 
