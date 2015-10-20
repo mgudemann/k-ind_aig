@@ -149,6 +149,13 @@ latch (unsigned k, unsigned i)
 }
 
 static int
+constraint (unsigned k, unsigned i)
+{
+  assert (0 <= i && i < model->num_constraint);
+  return lit (k, model->constraints[i].lit);
+}
+
+static int
 next (unsigned k, unsigned i)
 {
   assert (0 <= i && i < model->num_latches);
@@ -244,6 +251,12 @@ encode (unsigned k, unsigned po)
     {
       a = model->ands + i;
       and (lit (k, a->lhs), lit (k, a->rhs0), lit (k, a->rhs1));
+    }
+
+  /* encode constraints */
+  for (i = 0; i < model->num_constraints; i++)
+    {
+      unary (constraint (k, i));
     }
 
   if (k)
@@ -591,14 +604,15 @@ main (int argc, char ** argv)
 
   aiger_reencode (model);
 
-  msg (1, 0, "%u literals (MILOAB %u %u %u %u %u %u)",
+  msg (1, 0, "%u literals (MILOABC %u %u %u %u %u %u %u)",
        model->maxvar + 1,
        model->maxvar,
        model->num_inputs,
        model->num_latches,
        model->num_outputs,
        model->num_ands,
-       model->num_bad);
+       model->num_bad,
+       model->num_constraints);
 
   res = 0;
 
