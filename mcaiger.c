@@ -397,8 +397,9 @@ init (unsigned k)
           else
             picosat_assume (l);
         }
-      else
-        die ("reset of latch %u is undefined (%u)\n", i, model->latches[i].reset);
+      /* else */
+      /*   die ("reset of latch %s (%u) is undefined (%u)\n", */
+      /*        model->latches[i].name, i, model->latches[i].reset); */
     }
 
   report (2, k, "init");
