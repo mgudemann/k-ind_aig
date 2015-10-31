@@ -398,8 +398,19 @@ init (unsigned k)
             picosat_assume (l);
         }
       else
-        die ("reset of latch %s (%u) is undefined (%u)\n",
-             model->latches[i].name, i, model->latches[i].reset);
+        {
+          unsigned lit, reset;
+          lit = model->latches[i].lit;
+          reset = model->latches[i].reset;
+
+          /* if equal, leav initial value undefined */
+          /* if unequal -> fail, as unsupported by AIG */
+          if (reset != lit)
+            die ("reset of latch %s (%u / lit: %u) is undefined (%u)\n",
+                 model->latches[i].name, i,
+                 model->latches[i].lit,
+                 model->latches[i].reset);
+        }
     }
 
   report (2, k, "init");
