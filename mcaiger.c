@@ -40,6 +40,8 @@ void picosat_set_ado_conflict_limit (unsigned limit);
 #define SAT PICOSAT_SATISFIABLE
 #define UNSAT PICOSAT_UNSATISFIABLE
 
+#define _RUP_PROOF_
+
 static aiger * model;
 static int verbosity;
 static double start;
@@ -681,8 +683,8 @@ main (int argc, char ** argv)
               char *cnfFileName = malloc(sizeof(char) * 30);
               snprintf(rupFileName, 30, "proof_po%u.rup", po);
               snprintf(cnfFileName, 30, "proof_po%u.cnf", po);
-              FILE * rupFile = fopen(rupFileName, "w");
-              FILE * cnfFile = fopen(cnfFileName, "w");
+              FILE * rupFile = fopen(rupFileName, "w+");
+              FILE * cnfFile = fopen(cnfFileName, "w+");
               picosat_write_rup_trace(rupFile);
               picosat_print(cnfFile);
               fclose(rupFile);
