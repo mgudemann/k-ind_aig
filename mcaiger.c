@@ -643,6 +643,9 @@ main (int argc, char ** argv)
     {
 
       picosat_init ();
+#ifdef _RUP_PROOF_
+      picosat_enable_trace_generation ();
+#endif
 
       catchall ();
 
@@ -672,6 +675,22 @@ main (int argc, char ** argv)
             {
               report (1, k, "inductive");
               fputs ("0\n", stdout);
+#ifdef _RUP_PROOF_
+              report (1, k, "writing CNF/RUP proof file");
+              char *rupFileName = malloc(sizeof(char) * 30);
+              char *cnfFileName = malloc(sizeof(char) * 30);
+              snprintf(rupFileName, 30, "proof_po%u.rup", po);
+              snprintf(cnfFileName, 30, "proof_po%u.cnf", po);
+              FILE * rupFile = fopen(rupFileName, "w");
+              FILE * cnfFile = fopen(cnfFileName, "w");
+              picosat_write_rup_trace(rupFile);
+              picosat_print(cnfFile);
+              fclose(rupFile);
+              fclose(cnfFile);
+              printf("written CNF / RUP files %s / %s\n", cnfFileName, rupFileName);
+              free(rupFileName);
+              free(cnfFileName);
+#endif
               res = 20;
               break;
             }
