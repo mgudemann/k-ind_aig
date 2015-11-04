@@ -1,7 +1,7 @@
-This is a modified version of McAiger (see below) to include some AIGER 1.9
+k-ind_aig is a modified version of McAiger (see below) to include some AIGER 1.9
 features.
 
-In particular, it supports
+Currently, it supports
 
   * bad state properties instead of outputs
   * multiple properties (loops over the POs)

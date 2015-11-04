@@ -40,7 +40,7 @@ void picosat_set_ado_conflict_limit (unsigned limit);
 #define SAT PICOSAT_SATISFIABLE
 #define UNSAT PICOSAT_UNSATISFIABLE
 
-#define _RUP_PROOF_
+/* #define _RUP_PROOF_ */
 
 static aiger * model;
 static int verbosity;
@@ -56,7 +56,7 @@ static void
 die (const char * fmt, ...)
 {
   va_list ap;
-  fprintf (stderr, "*** mcaiger: ");
+  fprintf (stderr, "*** k-ind_aig: ");
   va_start (ap, fmt);
   vfprintf (stderr, fmt, ap);
   va_end (ap);
@@ -67,7 +67,7 @@ die (const char * fmt, ...)
 static void
 catch (int sig)
 {
-  fprintf (stderr, "*** mcaiger: caught signal(%d)\n", sig);
+  fprintf (stderr, "*** k-ind_aig: caught signal(%d)\n", sig);
   fflush (stderr);
 
   if (verbosity > 1)
@@ -100,7 +100,7 @@ msg (int level, int include_time, const char * fmt, ...)
   if (verbosity < level)
     return;
 
-  fprintf (stderr, "[mcaiger] ");
+  fprintf (stderr, "[k-ind_aig] ");
   if (include_time)
     {
       delta = picosat_time_stamp () - start;
@@ -464,7 +464,11 @@ sat (unsigned k, unsigned po)
     }
 
 RESTART:
+  printf ("calling picoSAT\n");
+
   res = picosat_sat (-1);
+
+  printf ("picoSAT call got back with res = %u\n", res);
 
   if (res == UNSAT)
     return res;
@@ -509,7 +513,18 @@ step (unsigned k, unsigned po)
     picosat_set_ado_conflict_limit (picosat_ado_conflicts () + 1000);
   bad (k, po);
   report (1, k, "step");
+
+  char *cnfFileName = malloc(sizeof(char) * 30);
+  snprintf(cnfFileName, 30, "step_k%u_po%u.cnf", k, po);
+  FILE * cnfFile = fopen(cnfFileName, "w+");
+  picosat_print(cnfFile);
+  fclose(cnfFile);
+  printf ("written problem to '%s'\n", cnfFileName);
+  free (cnfFileName);
+
   res = (sat (k, po) == UNSAT);
+
+  printf ("picoSAT done\n");
 
   return res;
 }
@@ -518,19 +533,36 @@ static int
 base (unsigned k, unsigned po)
 {
   int res;
+  printf ("encoding base k = %u\n", k);
   if (acs)
     picosat_disable_ado ();
+  printf ("encoding base / init k = %u\n", k);
   init (k);
+  printf ("encoding base / bad k = %u\n", k);
   bad (k, po);
   report (1, k, "base");
+  printf ("checking sat k = %u\n", k);
+
+  char *cnfFileName = malloc(sizeof(char) * 30);
+  snprintf(cnfFileName, 30, "base_k%u_po%u.cnf", k, po);
+  FILE * cnfFile = fopen(cnfFileName, "w+");
+  picosat_print(cnfFile);
+  fclose(cnfFile);
+  printf ("written problem to '%s'\n", cnfFileName);
+  free(cnfFileName);
+
+
   res = (sat (k, po) == SAT);
+
+  printf ("picoSAT done\n");
+
   if (acs)
     picosat_enable_ado ();
   return res;
 }
 
 #define USAGE \
-"mcaiger [<option> ...][<aiger>]\n" \
+"k-ind_aig [<option> ...][<aiger>]\n" \
 "\n" \
 "where <option> is one of the following:\n" \
 "\n" \
@@ -570,7 +602,7 @@ main (int argc, char ** argv)
       else if (!strcmp (argv[i], "-i"))
         ionly = 1;
       else if (!strcmp (argv[i], "-a"))
-        acs = 1;
+        acs = 0;
       else if (!strcmp (argv[i], "-d"))
         dcs = 1;
       else if (!strcmp (argv[i], "-r"))
@@ -609,7 +641,7 @@ main (int argc, char ** argv)
 
   model = aiger_init ();
 
-  msg (1, 0, "McAIGer Version 2");
+  msg (1, 0, "K-Ind_Aig Version 1 (based on McAiger version 2)");
   msg (1, 0, "parsing %s", name ? name : "<stdin>");
 
   if (name)
@@ -661,6 +693,7 @@ main (int argc, char ** argv)
 
       for (k = 0; k <= maxk; k++)
         {
+          printf("increasing k to %u\n", k);
 
           if (mix && acs && picosat_ado_conflicts () >= 10000)
             {
@@ -669,10 +702,14 @@ main (int argc, char ** argv)
               picosat_disable_ado ();
             }
 
+          printf("connecting k = %u\n", k);
           connect (k);
+          printf("encoding k = %u\n", k);
           encode (k, po);
+          printf("simple k = %u\n", k);
           simple (k);
 
+          printf("step k = %u\n", k);
           if (!bonly && step (k, po))
             {
               report (1, k, "inductive");
@@ -697,6 +734,7 @@ main (int argc, char ** argv)
               break;
             }
 
+          printf("inconsistent k = %u\n", k);
           if (bonly && picosat_inconsistent ())
             {
               report (1, k, "inconsistent");
@@ -705,6 +743,7 @@ main (int argc, char ** argv)
               break;
             }
 
+          printf("base k = %u\n", k);
           if (!ionly && base (k, po))
             {
               report (1, k, "reachable");

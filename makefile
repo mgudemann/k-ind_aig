@@ -1,9 +1,9 @@
 CFLAGS=-Wall -DNDEBUG -O3
-all: mcaiger
-OBJ=mcaiger.o ../aiger/aiger.o ../picosat-936/picosat.o
-mcaiger: $(OBJ)
+all: k-ind_aig
+OBJ=k-ind_aig.o ../aiger/aiger.o ../picosat-936/picosat.o
+k-ind_aig: $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $(OBJ)
-mcaiger.o: ../aiger/aiger.h ../picosat-936/picosat.h makefile
+k-ind_aig.o: ../aiger/aiger.h ../picosat-936/picosat.h makefile
 clean:
-	rm -f mcaiger *.o
+	rm -f k-ind_aig *.o
 .PHONY: all clean
