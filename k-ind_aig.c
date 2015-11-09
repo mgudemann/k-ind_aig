@@ -47,6 +47,11 @@ static int dcs, rcs, mix, ncs;
 static unsigned * frames, sframes, nframes;
 static unsigned nrcs;
 
+#define SOLVER_NAME_MAX 256
+#define SOLVER_RESULT_MAX 256
+char solver_name[SOLVER_NAME_MAX];
+char solver_result[SOLVER_RESULT_MAX];
+
 static void
 die (const char * fmt, ...)
 {
@@ -421,17 +426,66 @@ static int
 sat (unsigned k, unsigned po)
 {
   unsigned i;
-  int res;
+  int res, external_res;
+  int cmp_res;
+  char *fgets_res;
+  FILE *fp;
 
-#ifdef _DEBUG_
-  printf ("calling picoSAT\n");
-#endif
+  /* call solver and open pipe for communication */
+  if ((fp = popen(solver_name, "r")) == NULL) {
+    die ("Error opening pipe to solver");
+  }
+
+  /* read result from pipe */
+  int next_char;
+  while (1)
+    {
+      next_char = fgetc(fp);
+      switch (next_char)
+        {
+        case EOF:
+          die ("end of file from pipe before result from SAT query");
+          break;
+        default:
+          switch ((char) next_char)
+            {
+              /* read result on "s $RESULT" */
+            case 's':
+              fgets_res = fgets(solver_result, SOLVER_RESULT_MAX, fp);
+              cmp_res = strncmp(solver_result, " UNSATISFIABLE", 14);
+              if (cmp_res == 0)
+                {
+                  external_res = PICOSAT_UNSATISFIABLE;
+                  goto end;
+                }
+              cmp_res = strncmp(solver_result, " SATISFIABLE", 12);
+              if (cmp_res == 0)
+                {
+                  external_res = PICOSAT_SATISFIABLE;
+                  goto end;
+                }
+              die ("do not understand SAT solvers answer");
+              break;
+              /* skip whole line if not starting with 's' */
+            default:
+              while (next_char != '\n')
+                  next_char = fgetc(fp);
+            }
+        }
+    }
+ end:
+
+  pclose(fp);
+
+  /*
+    assume false to force picosat to return immediately
+    TODO add real solution for this to simulate incremental solver
+  */
+  picosat_assume(-1);
+  picosat_assume(1);
   res = picosat_sat (-1);
-#ifdef _DEBUG_
-  printf ("picoSAT call got back with res = %u\n", res);
-#endif
 
-  return res;
+  return external_res;
 }
 
 static int
@@ -442,7 +496,8 @@ step (unsigned k, unsigned po)
   report (1, k, "step");
 
   char *cnfFileName = malloc(sizeof(char) * 30);
-  snprintf(cnfFileName, 30, "step_k%u_po%u.cnf", k, po);
+  /* snprintf(cnfFileName, 30, "step_k%u_po%u.cnf", k, po); */
+  snprintf(cnfFileName, 30, "problem.cnf");
   FILE * cnfFile = fopen(cnfFileName, "w+");
   picosat_print(cnfFile);
   fclose(cnfFile);
@@ -481,7 +536,8 @@ base (unsigned k, unsigned po)
 #endif
 
   char *cnfFileName = malloc(sizeof(char) * 30);
-  snprintf(cnfFileName, 30, "base_k%u_po%u.cnf", k, po);
+  /* snprintf(cnfFileName, 30, "base_k%u_po%u.cnf", k, po); */
+  snprintf(cnfFileName, 30, "problem.cnf");
   FILE * cnfFile = fopen(cnfFileName, "w+");
   picosat_print(cnfFile);
   fclose(cnfFile);
@@ -521,6 +577,8 @@ main (int argc, char ** argv)
 
   start = picosat_time_stamp ();
 
+  snprintf(solver_name, SOLVER_NAME_MAX, "glucose problem.cnf");
+
   for (i = 1; i < argc; i++)
     {
       if (!strcmp (argv[i], "-h"))
@@ -536,6 +594,12 @@ main (int argc, char ** argv)
         witness = 1;
       else if (isdigit (argv[i][0]))
         maxk = (unsigned) atoi (argv[i]);
+      /* get name of external solver */
+      else if (!strcmp (argv[i], "-s"))
+        {
+          snprintf(solver_name, SOLVER_NAME_MAX, "%s problem.cnf", argv[i+1]);
+          i++;
+        }
       else if (argv[i][0] == '-')
         die ("invalid command line option '%s'", argv[i]);
       else if (name)
