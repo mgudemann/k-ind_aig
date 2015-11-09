@@ -384,7 +384,7 @@ init (unsigned k)
           lit = model->latches[i].lit;
           reset = model->latches[i].reset;
 
-          /* if equal, leav initial value undefined */
+          /* if equal, leave initial value undefined */
           /* if unequal -> fail, as unsupported by AIG */
           if (reset != lit)
             die ("reset of latch %s (%u / lit: %u) is undefined (%u)\n",
@@ -507,13 +507,8 @@ base (unsigned k, unsigned po)
 "  -h       print this command line summary and exit\n" \
 "  -v       increase verbosity (default 0, max 3)\n" \
 "  -b       base case only (only search for witnesses)\n" \
-"  -i       inductive case only\n" \
-"  -a       use all different contraints (default)\n" \
-"  -r       incremental refinement of simple path constraints\n" \
-"  -m       mix '-a' and '-r'\n" \
-"  -d       use classical SAT encoding of simple path constraints\n" \
-"  -n       no simple path nor all different constraints\n" \
 "  -w       print witness\n" \
+"  -s <solver_CLI> command line of external DIMACS solver to use\n" \
 "  <maxk>   maximum bound\n"
 
 int
@@ -537,16 +532,6 @@ main (int argc, char ** argv)
         verbosity++;
       else if (!strcmp (argv[i], "-b"))
         bonly = 1;
-      else if (!strcmp (argv[i], "-i"))
-        ionly = 1;
-      else if (!strcmp (argv[i], "-d"))
-        dcs = 1;
-      else if (!strcmp (argv[i], "-r"))
-        rcs = 1;
-      else if (!strcmp (argv[i], "-m"))
-        mix = 1;
-      else if (!strcmp (argv[i], "-n"))
-        ncs = 1;
       else if (!strcmp (argv[i], "-w"))
         witness = 1;
       else if (isdigit (argv[i][0]))
