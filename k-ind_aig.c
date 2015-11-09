@@ -23,11 +23,6 @@ IN THE SOFTWARE.
 #include "../aiger/aiger.h"
 #include "../picosat-936/picosat.h"
 
-unsigned picosat_ado_conflicts (void);
-void picosat_disable_ado (void);
-void picosat_enable_ado (void);
-void picosat_set_ado_conflict_limit (unsigned limit);
-
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -48,7 +43,7 @@ static double start;
 
 static int witness;
 static int ionly, bonly;
-static int dcs, acs, rcs, mix, ncs;
+static int dcs, rcs, mix, ncs;
 static unsigned * frames, sframes, nframes;
 static unsigned nrcs;
 
@@ -222,8 +217,7 @@ report (int verbosity, unsigned k, const char * phase)
   msg (verbosity, 1,
        "%4u %-10s %10d %11d %11u",
        k, phase,
-       picosat_variables (), picosat_added_original_clauses (),
-       picosat_ado_conflicts ());
+       picosat_variables (), picosat_added_original_clauses ());
 }
 
 static void
@@ -272,19 +266,6 @@ encode (unsigned k, unsigned po)
     }
 
   report (2, k, "encode");
-}
-
-static void
-ado (unsigned k)
-{
-  unsigned i;
-
-  for (i = 0; i < model->num_latches; i++)
-    picosat_add_ado_lit (latch (k, i));
-
-  picosat_add_ado_lit (0);
-
-  report (2, k, "ado");
 }
 
 static int
@@ -342,8 +323,6 @@ simple (unsigned k)
 {
   if (dcs)
     diffsk (k);
-  else if (acs)
-    ado (k);
   else
     assert (rcs || ncs);
 }
@@ -444,73 +423,21 @@ sat (unsigned k, unsigned po)
   unsigned i;
   int res;
 
-  if (rcs || mix)
-    {
-      if (k == nframes)
-        {
-          assert (k == nframes);
-
-          if (k >= sframes)
-            {
-              sframes = sframes ? 2 * sframes : 1;
-              frames = realloc (frames, sframes * sizeof frames[0]);
-            }
-
-          assert (nframes < sframes);
-          frames[nframes++] = k;
-        }
-
-      assert (nframes == k + 1);
-    }
-
-RESTART:
+#ifdef _DEBUG_
   printf ("calling picoSAT\n");
-
+#endif
   res = picosat_sat (-1);
-
+#ifdef _DEBUG_
   printf ("picoSAT call got back with res = %u\n", res);
+#endif
 
-  if (res == UNSAT)
-    return res;
-
-  if (res == SAT && !rcs)
-    return res;
-
-  if (!res)
-    {
-      assert (mix);
-      assert (!rcs);
-      assert (acs);
-      rcs = 1;
-      acs = 0;
-      picosat_disable_ado ();
-      goto RESTART;
-    }
-
-  assert (rcs);
-  assert (res == SAT);
-
-  qsort (frames, k + 1, sizeof frames[0], cmp_frames);
-  for (i = 0; i < k; i++)
-    if (!cmp_frames (frames + i, frames + i + 1))
-      {
-        diffs (frames[i], frames[i+1]);
-        nrcs++;
-        bad (k, po);
-        goto RESTART;
-      }
-
-  assert (i == k);	/* all different */
-
-  return SAT;
+  return res;
 }
 
 static int
 step (unsigned k, unsigned po)
 {
   int res;
-  if (mix && acs)
-    picosat_set_ado_conflict_limit (picosat_ado_conflicts () + 1000);
   bad (k, po);
   report (1, k, "step");
 
@@ -519,12 +446,16 @@ step (unsigned k, unsigned po)
   FILE * cnfFile = fopen(cnfFileName, "w+");
   picosat_print(cnfFile);
   fclose(cnfFile);
+#ifdef _DEBUG_
   printf ("written problem to '%s'\n", cnfFileName);
+#endif
   free (cnfFileName);
 
   res = (sat (k, po) == UNSAT);
 
+#ifdef _DEBUG_
   printf ("picoSAT done\n");
+#endif
 
   return res;
 }
@@ -533,31 +464,38 @@ static int
 base (unsigned k, unsigned po)
 {
   int res;
+#ifdef _DEBUG_
   printf ("encoding base k = %u\n", k);
-  if (acs)
-    picosat_disable_ado ();
+#endif
+#ifdef _DEBUG_
   printf ("encoding base / init k = %u\n", k);
+#endif
   init (k);
+#ifdef _DEBUG_
   printf ("encoding base / bad k = %u\n", k);
+#endif
   bad (k, po);
   report (1, k, "base");
+#ifdef _DEBUG_
   printf ("checking sat k = %u\n", k);
+#endif
 
   char *cnfFileName = malloc(sizeof(char) * 30);
   snprintf(cnfFileName, 30, "base_k%u_po%u.cnf", k, po);
   FILE * cnfFile = fopen(cnfFileName, "w+");
   picosat_print(cnfFile);
   fclose(cnfFile);
+#ifdef _DEBUG_
   printf ("written problem to '%s'\n", cnfFileName);
+#endif
   free(cnfFileName);
-
 
   res = (sat (k, po) == SAT);
 
+#ifdef _DEBUG_
   printf ("picoSAT done\n");
+#endif
 
-  if (acs)
-    picosat_enable_ado ();
   return res;
 }
 
@@ -601,8 +539,6 @@ main (int argc, char ** argv)
         bonly = 1;
       else if (!strcmp (argv[i], "-i"))
         ionly = 1;
-      else if (!strcmp (argv[i], "-a"))
-        acs = 0;
       else if (!strcmp (argv[i], "-d"))
         dcs = 1;
       else if (!strcmp (argv[i], "-r"))
@@ -626,7 +562,7 @@ main (int argc, char ** argv)
   if (ionly && bonly)
     die ("'-i' and '-b' can not be combined");
 
-  cs = dcs + acs + rcs + mix + ncs;
+  cs = dcs + rcs + mix + ncs;
   if (cs > 1)
     die ("at most one of '-a', '-r', '-m', '-d', or '-n' can be used");
 
@@ -635,9 +571,6 @@ main (int argc, char ** argv)
 
   if (bonly)
     ncs = cs = 1;
-
-  if (!cs || mix)
-    acs = 1;
 
   model = aiger_init ();
 
@@ -693,23 +626,26 @@ main (int argc, char ** argv)
 
       for (k = 0; k <= maxk; k++)
         {
-          printf("increasing k to %u\n", k);
+#ifdef _DEBUG_
+  printf("increasing k to %u\n", k);
+#endif
 
-          if (mix && acs && picosat_ado_conflicts () >= 10000)
-            {
-              acs = 0;
-              rcs = 1;
-              picosat_disable_ado ();
-            }
-
-          printf("connecting k = %u\n", k);
+#ifdef _DEBUG_
+  printf("connecting k = %u\n", k);
+#endif
           connect (k);
+#ifdef _DEBUG_
           printf("encoding k = %u\n", k);
+#endif
           encode (k, po);
+#ifdef _DEBUG_
           printf("simple k = %u\n", k);
+#endif
           simple (k);
 
+#ifdef _DEBUG_
           printf("step k = %u\n", k);
+#endif
           if (!bonly && step (k, po))
             {
               report (1, k, "inductive");
@@ -726,7 +662,9 @@ main (int argc, char ** argv)
               picosat_print(cnfFile);
               fclose(rupFile);
               fclose(cnfFile);
+#ifdef _DEBUG_
               printf("written CNF / RUP files %s / %s\n", cnfFileName, rupFileName);
+#endif
               free(rupFileName);
               free(cnfFileName);
 #endif
@@ -734,7 +672,9 @@ main (int argc, char ** argv)
               break;
             }
 
+#ifdef _DEBUG_
           printf("inconsistent k = %u\n", k);
+#endif
           if (bonly && picosat_inconsistent ())
             {
               report (1, k, "inconsistent");
@@ -743,7 +683,9 @@ main (int argc, char ** argv)
               break;
             }
 
+#ifdef _DEBUG_
           printf("base k = %u\n", k);
+#endif
           if (!ionly && base (k, po))
             {
               report (1, k, "reachable");
