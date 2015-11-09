@@ -51,6 +51,7 @@ static unsigned nrcs;
 #define SOLVER_RESULT_MAX 256
 char solver_name[SOLVER_NAME_MAX];
 char solver_result[SOLVER_RESULT_MAX];
+char solver_cli[SOLVER_NAME_MAX * 2];
 
 static void
 die (const char * fmt, ...)
@@ -423,7 +424,7 @@ cmp_frames (const void * p, const void * q)
 }
 
 static int
-sat (unsigned k, unsigned po)
+sat (unsigned k, unsigned po, char *cnf_file_name)
 {
   unsigned i;
   int res, external_res;
@@ -432,7 +433,8 @@ sat (unsigned k, unsigned po)
   FILE *fp;
 
   /* call solver and open pipe for communication */
-  if ((fp = popen(solver_name, "r")) == NULL) {
+  snprintf(solver_cli, 2*SOLVER_NAME_MAX, "%s %s", solver_name, cnf_file_name);
+  if ((fp = popen(solver_cli, "r")) == NULL) {
     die ("Error opening pipe to solver");
   }
 
@@ -496,21 +498,13 @@ step (unsigned k, unsigned po)
   report (1, k, "step");
 
   char *cnfFileName = malloc(sizeof(char) * 30);
-  /* snprintf(cnfFileName, 30, "step_k%u_po%u.cnf", k, po); */
-  snprintf(cnfFileName, 30, "problem.cnf");
+  snprintf(cnfFileName, 30, "step_k%u_po%u.cnf", k, po);
   FILE * cnfFile = fopen(cnfFileName, "w+");
   picosat_print(cnfFile);
   fclose(cnfFile);
-#ifdef _DEBUG_
-  printf ("written problem to '%s'\n", cnfFileName);
-#endif
+
+  res = (sat (k, po, cnfFileName) == UNSAT);
   free (cnfFileName);
-
-  res = (sat (k, po) == UNSAT);
-
-#ifdef _DEBUG_
-  printf ("picoSAT done\n");
-#endif
 
   return res;
 }
@@ -536,21 +530,13 @@ base (unsigned k, unsigned po)
 #endif
 
   char *cnfFileName = malloc(sizeof(char) * 30);
-  /* snprintf(cnfFileName, 30, "base_k%u_po%u.cnf", k, po); */
-  snprintf(cnfFileName, 30, "problem.cnf");
+  snprintf(cnfFileName, 30, "base_k%u_po%u.cnf", k, po);
   FILE * cnfFile = fopen(cnfFileName, "w+");
   picosat_print(cnfFile);
   fclose(cnfFile);
-#ifdef _DEBUG_
-  printf ("written problem to '%s'\n", cnfFileName);
-#endif
+
+  res = (sat (k, po, cnfFileName) == SAT);
   free(cnfFileName);
-
-  res = (sat (k, po) == SAT);
-
-#ifdef _DEBUG_
-  printf ("picoSAT done\n");
-#endif
 
   return res;
 }
@@ -577,7 +563,7 @@ main (int argc, char ** argv)
 
   start = picosat_time_stamp ();
 
-  snprintf(solver_name, SOLVER_NAME_MAX, "glucose problem.cnf");
+  snprintf(solver_name, SOLVER_NAME_MAX, "glucose");
 
   for (i = 1; i < argc; i++)
     {
@@ -597,7 +583,7 @@ main (int argc, char ** argv)
       /* get name of external solver */
       else if (!strcmp (argv[i], "-s"))
         {
-          snprintf(solver_name, SOLVER_NAME_MAX, "%s problem.cnf", argv[i+1]);
+          snprintf(solver_name, SOLVER_NAME_MAX, "%s", argv[i+1]);
           i++;
         }
       else if (argv[i][0] == '-')
