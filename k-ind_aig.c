@@ -466,20 +466,26 @@ sat (unsigned k, unsigned po, char *cnf_file_name)
             {
               /* read result on "s $RESULT" */
             case 's':
-              fgets_res = fgets(solver_result, SOLVER_RESULT_MAX, fp);
-              cmp_res = strncmp(solver_result, " UNSATISFIABLE", 14);
-              if (cmp_res == 0)
+              next_char = fgetc(fp);
+              if (next_char == ' ')
                 {
-                  external_res = PICOSAT_UNSATISFIABLE;
-                  goto end;
+                  fgets_res = fgets(solver_result, SOLVER_RESULT_MAX, fp);
+                  cmp_res = strncmp(solver_result, "UNSATISFIABLE", 13);
+                  if (cmp_res == 0)
+                    {
+                      external_res = PICOSAT_UNSATISFIABLE;
+                      goto end;
+                    }
+                  cmp_res = strncmp(solver_result, "SATISFIABLE", 11);
+                  if (cmp_res == 0)
+                    {
+                      external_res = PICOSAT_SATISFIABLE;
+                      goto end;
+                    }
+                  die ("do not understand SAT solvers answer");
                 }
-              cmp_res = strncmp(solver_result, " SATISFIABLE", 12);
-              if (cmp_res == 0)
-                {
-                  external_res = PICOSAT_SATISFIABLE;
-                  goto end;
-                }
-              die ("do not understand SAT solvers answer");
+              else
+                ungetc(next_char, fp);
               break;
               /* skip whole line if not starting with 's' */
             default:
