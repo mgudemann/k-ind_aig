@@ -21,7 +21,7 @@ IN THE SOFTWARE.
 */
 
 #include "../aiger/aiger.h"
-#include "../picosat-936/picosat.h"
+#include "../picosat/picosat.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -53,6 +53,8 @@ char solver_name[SOLVER_NAME_MAX];
 char solver_result[SOLVER_RESULT_MAX];
 char solver_cli[SOLVER_NAME_MAX * 2];
 
+PicoSAT *solver;
+
 static void
 die (const char * fmt, ...)
 {
@@ -72,7 +74,7 @@ catch (int sig)
   fflush (stderr);
 
   if (verbosity > 1)
-    picosat_stats ();
+    picosat_stats (solver);
 
   fflush (stderr);
 
@@ -176,30 +178,30 @@ static void
 unary (int a)
 {
   assert (a);
-  picosat_add (a);
-  picosat_add (0);
+  picosat_add (solver, a);
+  picosat_add (solver, 0);
 }
 
 static void
 binary (int a, int b)
 {
   assert (a);
-  picosat_add (a);
+  picosat_add (solver, a);
   assert (b);
-  picosat_add (b);
-  picosat_add (0);
+  picosat_add (solver, b);
+  picosat_add (solver, 0);
 }
 
 static void
 ternary (int a, int b, int c)
 {
   assert (a);
-  picosat_add (a);
+  picosat_add (solver, a);
   assert (b);
-  picosat_add (b);
+  picosat_add (solver, b);
   assert (c);
-  picosat_add (c);
-  picosat_add (0);
+  picosat_add (solver, c);
+  picosat_add (solver, 0);
 }
 
 static void
@@ -223,7 +225,7 @@ report (int verbosity, unsigned k, const char * phase)
   msg (verbosity, 1,
        "%4u %-10s %10d %11d %11u",
        k, phase,
-       picosat_variables (), picosat_added_original_clauses ());
+       picosat_variables (solver), picosat_added_original_clauses (solver));
 }
 
 static void
@@ -264,9 +266,9 @@ encode (unsigned k, unsigned po)
   if (k)
     {
       for (i = 0; i < model->num_latches; i++)
-        picosat_add (latch (k, i));
+        picosat_add (solver, latch (k, i));
 
-      picosat_add (0);
+      picosat_add (solver, 0);
 
       unary (-bad_state (k - 1, po));
     }
@@ -303,9 +305,9 @@ diffs (unsigned k, unsigned l)
     }
 
   for (i = 0; i < model->num_latches; i++)
-    picosat_add (diff (k, l, i));
+    picosat_add (solver, diff (k, l, i));
 
-  picosat_add (0);
+  picosat_add (solver, 0);
 
   msg (2, 1, "diffs %u %u", l, k);
 }
@@ -343,7 +345,7 @@ stimulus (unsigned k)
     {
       for (j = 0; j < model->num_inputs; j++)
         {
-          tmp = picosat_deref (input (i, j));
+          tmp = picosat_deref (solver, input (i, j));
           fputc (tmp ? ((tmp < 0) ? '0' : '1') : 'x', stdout);
         }
 
@@ -355,7 +357,7 @@ static void
 bad (unsigned k, unsigned po)
 {
   assert (model->num_bad > po);
-  picosat_assume (bad_state (k, po));
+  picosat_assume (solver, bad_state (k, po));
   report (2, k, "bad");
 }
 
@@ -382,7 +384,7 @@ init (unsigned k)
           if (bonly)
             unary (l);
           else
-            picosat_assume (l);
+            picosat_assume (solver, l);
         }
       else
         {
@@ -413,8 +415,8 @@ cmp_frames (const void * p, const void * q)
 
   for (i = 0; i < model->num_latches; i++)
     {
-      a = picosat_deref (latch (k, i));
-      b = picosat_deref (latch (l, i));
+      a = picosat_deref (solver, latch (k, i));
+      b = picosat_deref (solver, latch (l, i));
       res = a - b;
       if (res)
         return res;
@@ -483,9 +485,9 @@ sat (unsigned k, unsigned po, char *cnf_file_name)
     assume false to force picosat to return immediately
     TODO add real solution for this to simulate incremental solver
   */
-  picosat_assume(-1);
-  picosat_assume(1);
-  res = picosat_sat (-1);
+  picosat_assume(solver, -1);
+  picosat_assume(solver, 1);
+  res = picosat_sat (solver, -1);
 
   return external_res;
 }
@@ -500,7 +502,7 @@ step (unsigned k, unsigned po)
   char *cnfFileName = malloc(sizeof(char) * 30);
   snprintf(cnfFileName, 30, "step_k%u_po%u.cnf", k, po);
   FILE * cnfFile = fopen(cnfFileName, "w+");
-  picosat_print(cnfFile);
+  picosat_print(solver, cnfFile);
   fclose(cnfFile);
 
   res = (sat (k, po, cnfFileName) == UNSAT);
@@ -532,7 +534,7 @@ base (unsigned k, unsigned po)
   char *cnfFileName = malloc(sizeof(char) * 30);
   snprintf(cnfFileName, 30, "base_k%u_po%u.cnf", k, po);
   FILE * cnfFile = fopen(cnfFileName, "w+");
-  picosat_print(cnfFile);
+  picosat_print(solver, cnfFile);
   fclose(cnfFile);
 
   res = (sat (k, po, cnfFileName) == SAT);
@@ -644,20 +646,20 @@ main (int argc, char ** argv)
   for (int po = 0; po < numberPOs; po++)
     {
 
-      picosat_init ();
+      solver = picosat_init ();
 #ifdef _RUP_PROOF_
-      picosat_enable_trace_generation ();
+      picosat_enable_trace_generation (solver);
 #endif
 
       catchall ();
 
       msg (1, 0, "checking po %u", po);
 
-      picosat_set_prefix ("[picosat] ");
-      picosat_set_output (stderr);
+      picosat_set_prefix (solver, "[picosat] ");
+      picosat_set_output (solver, stderr);
 
       if (verbosity > 2)
-        picosat_enable_verbosity ();
+        picosat_set_verbosity (solver, verbosity);
 
       for (k = 0; k <= maxk; k++)
         {
@@ -693,8 +695,8 @@ main (int argc, char ** argv)
               snprintf(cnfFileName, 30, "proof_po%u.cnf", po);
               FILE * rupFile = fopen(rupFileName, "w+");
               FILE * cnfFile = fopen(cnfFileName, "w+");
-              picosat_write_rup_trace(rupFile);
-              picosat_print(cnfFile);
+              picosat_write_rup_trace(solver, rupFile);
+              picosat_print(solver, cnfFile);
               fclose(rupFile);
               fclose(cnfFile);
 #ifdef _DEBUG_
@@ -710,7 +712,7 @@ main (int argc, char ** argv)
 #ifdef _DEBUG_
           printf("inconsistent k = %u\n", k);
 #endif
-          if (bonly && picosat_inconsistent ())
+          if (bonly && picosat_inconsistent (solver))
             {
               report (1, k, "inconsistent");
               fputs ("0\n", stdout);
@@ -740,9 +742,9 @@ main (int argc, char ** argv)
       fflush (stdout);
 
       if (verbosity > 1)
-        picosat_stats ();
+        picosat_stats (solver);
 
-      picosat_reset ();
+      picosat_reset (solver);
     }
 
   aiger_reset (model);
