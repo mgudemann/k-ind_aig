@@ -5,6 +5,7 @@ Currently, it supports
 
   * bad state properties instead of outputs
   * multiple properties (loops over the POs)
+  * external SAT Solvers (e.g., picosat/precosat/glucose/cryptominisat)
 
 ***
 
