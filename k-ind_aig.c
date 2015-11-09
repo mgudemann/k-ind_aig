@@ -1,4 +1,11 @@
 /*
+This k-induction model-checker for sequential circuits in AIG format is based on
+the original mcaiger code with the following license:
+
+---------------------------------------------------------------------------
+-- START OF LICENSE FOR MCAIGER SOURCE CODE -------------------------
+---------------------------------------------------------------------------
+
 Copyright (c) 2008 - 2010, Armin Biere, Johannes Kepler University.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18,6 +25,10 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
+
+---------------------------------------------------------------------------
+-- START OF LICENSE FOR MCAIGER SOURCE CODE -------------------------
+---------------------------------------------------------------------------
 */
 
 #include "../aiger/aiger.h"
