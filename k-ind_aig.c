@@ -84,9 +84,6 @@ catch (int sig)
   fprintf (stderr, "*** k-ind_aig: caught signal(%d)\n", sig);
   fflush (stderr);
 
-  if (verbosity > 1)
-    picosat_stats (solver);
-
   fflush (stderr);
 
   kill (getpid (), sig);
@@ -456,6 +453,8 @@ sat (unsigned k, unsigned po, char *cnf_file_name)
   while (1)
     {
       next_char = fgetc(fp);
+      if (verbosity > 1)
+        putchar(next_char);
       switch (next_char)
         {
         case EOF:
@@ -470,6 +469,8 @@ sat (unsigned k, unsigned po, char *cnf_file_name)
               if (next_char == ' ')
                 {
                   fgets_res = fgets(solver_result, SOLVER_RESULT_MAX, fp);
+                  if (verbosity > 1)
+                    printf("s %s\n", solver_result);
                   cmp_res = strncmp(solver_result, "UNSATISFIABLE", 13);
                   if (cmp_res == 0)
                     {
@@ -490,7 +491,11 @@ sat (unsigned k, unsigned po, char *cnf_file_name)
               /* skip whole line if not starting with 's' */
             default:
               while (next_char != '\n')
+                {
                   next_char = fgetc(fp);
+                  if (verbosity > 1)
+                    putchar(next_char);
+                }
             }
         }
     }
@@ -757,9 +762,6 @@ main (int argc, char ** argv)
       }
 
       fflush (stdout);
-
-      if (verbosity > 1)
-        picosat_stats (solver);
 
       picosat_reset (solver);
     }
