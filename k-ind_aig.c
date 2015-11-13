@@ -42,6 +42,7 @@ IN THE SOFTWARE.
 #include <ctype.h>
 #include <signal.h>
 #include <unistd.h>
+#include <errno.h>
 
 #define SAT PICOSAT_SATISFIABLE
 #define UNSAT PICOSAT_UNSATISFIABLE
@@ -528,6 +529,7 @@ step (unsigned k, unsigned po)
   fclose(cnfFile);
 
   res = (sat (k, po, cnfFileName) == UNSAT);
+  unlink (cnfFileName);
   free (cnfFileName);
 
   return res;
@@ -560,6 +562,7 @@ base (unsigned k, unsigned po)
   fclose(cnfFile);
 
   res = (sat (k, po, cnfFileName) == SAT);
+  unlink (cnfFileName);
   free(cnfFileName);
 
   return res;
@@ -581,7 +584,7 @@ int
 main (int argc, char ** argv)
 {
   const char * name = 0, * err;
-  unsigned k, maxk = UINT_MAX;
+  unsigned k, maxk = 10;
   int i, cs, res;
   double delta;
 
